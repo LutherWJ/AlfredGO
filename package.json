@@ -1,0 +1,31 @@
+{
+  "name": "alfredgo",
+  "module": "src/server/index.tsx",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build:css": "bunx @tailwindcss/cli -i ./src/client/input.css -o ./public/css/style.css --minify",
+    "build:js": "bun build ./src/client/main.ts --outdir ./public/js && bun build ./src/client/sw.ts --outfile ./public/sw.js",
+    "build": "bun run build:css && bun run build:js",
+    "dev:server": "bun run --hot src/server/index.tsx",
+    "dev:css": "bunx @tailwindcss/cli -i ./src/client/input.css -o ./public/css/style.css --watch",
+    "dev:js": "concurrently \"bun build ./src/client/main.ts --outdir ./public/js --watch\" \"bun build ./src/client/sw.ts --outfile ./public/sw.js --watch\"",
+    "dev": "concurrently \"bun run dev:server\" \"bun run dev:css\" \"bun run dev:js\""
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.2.2",
+    "@types/bun": "latest",
+    "autoprefixer": "^10.4.27",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.9",
+    "tailwindcss": "^4.2.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.7.6",
+    "hono": "^4.12.12",
+    "zod": "^4.3.6"
+  }
+}
