@@ -7,13 +7,13 @@ export const requireAuth: MiddlewareHandler = async (c, next) => {
   const sessionId = await getSignedCookie(c, CONFIG.COOKIE_SECRET, "session_id");
 
   if (!sessionId) {
-    return c.text("Unauthorized - Missing or Invalid Session", 401);
+    return c.redirect("/auth/login");
   }
 
   const user = UserModel.findById(sessionId);
 
   if (!user) {
-    return c.text("Unauthorized - User Not Found", 401);
+    return c.redirect("/auth/login");
   }
 
   // Bind the validated user to the request context

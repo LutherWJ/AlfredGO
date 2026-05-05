@@ -15,6 +15,7 @@ The current information delivery system for campus software lacks a centralized,
 We propose the development of a lightweight, mobile-first Progressive Web Application (PWA) acting as a centralized campus software directory.
 
 * **Interface:** The application will utilize an "Inset Grouped List" (Hierarchical List View) interface, keeping navigation shallow (no more than one tap of depth) and minimizing cognitive load.  
+* **Personalized Dashboard:** The UI will feature dynamic "Favorites" and "Recently Viewed" sections to streamline access to frequently used applications.  
 * **Search Functionality:** A sticky search bar will allow students to instantly filter through available campus services in real-time.  
 * **Tech Stack:** The system will be built using Bun, Hono, and HTMX, leveraging the HATEOAS (Hypermedia As The Engine Of Application State) architectural pattern. This ensures high performance and exact synchronization between server state and client UI.  
 * *Note on Scope:* A unified notification aggregate was considered during the conceptual phase but has been explicitly scoped out of the Minimum Viable Product (MVP) to focus entirely on core directory and search functionalities, as true integration would require complex vendor APIs.
@@ -29,13 +30,15 @@ The system operates via a thin-client architecture guided by HATEOAS principles.
 
 ### 2.1 Conceptual Data Models
 
-The database will utilize a relational model to associate campus services with overarching categories while supporting user sessions and RBAC.
+The database will utilize a relational model to associate campus services with overarching categories while supporting user sessions, RBAC, and personalized dashboards.
 
 | Entity | Attributes | Description |
 | :---- | :---- | :---- |
 | **Users** | `id` (PK), `sso_id` (Unique), `email`, `display_name`, `role` | Stores SSO mapping and authorization roles (e.g., student, admin). |
 | **Categories** | `id` (PK), `name`, `icon_name`, `sort_order` | Organizes services into logical groups (e.g., Academic, Dining). |
 | **Services** | `id` (PK), `category_id` (FK), `name`, `description`, `url`, `date_created`, `date_modified` | Represents the actual software packages and links, tracking content freshness. |
+| **User\_Favorites** | `user_id` (PK/FK), `service_id` (PK/FK), `created_at` | A many-to-many junction table to store explicitly pinned services. |
+| **User\_Recent\_Services** | `user_id` (PK/FK), `service_id` (PK/FK), `last_accessed` | A junction table updated via UPSERT to track recent application usage. |
 
 ---
 
@@ -65,6 +68,12 @@ Use Cases:
 
    \- View real-time filtered results via HATEOAS interaction
 
+4\. Manage Personalized View
+
+   \- Toggle Favorite status on a Service
+
+   \- Access Services via "Recently Viewed" tracker
+
 ---
 
 ## 4\. Physical Design
@@ -75,6 +84,7 @@ Use Cases:
 * **Components:**  
   * Sticky header containing the search input.  
   * Grouped list items with rounded corners, distinct borders, and chevron indicators.  
+* **Dynamic Rendering:** The home view will dynamically display "Favorites" and "Recently Viewed" categories at the top of the interface if the authenticated user has associated database records.  
 * **Client Specifications:** HTMX manages client state by requesting HTML partials. CSS will be handled via a utility-first approach to maintain strict adherence to the design paradigm.
 
 ### 4.2 Data Design & Proposed Technical Specifications
@@ -86,7 +96,8 @@ Use Cases:
 
 * **Runtime:** Bun, serving as an ultra-fast JavaScript runtime.  
 * **Web Framework:** Hono, a lightweight web framework.  
-* **Architecture:** Adhering to HATEOAS, endpoints are structured to return HTML fragments reflecting the exact server state, avoiding complex client-side JSON parsing.
+* **Architecture:** Adhering to HATEOAS, endpoints are structured to return HTML fragments reflecting the exact server state (Server-Side MVC architecture), avoiding complex client-side JSON parsing.  
+* **Usage Analytics & Redirect Tracking:** To populate the "Recently Viewed" UI component, outbound application links are routed through a server-side redirect endpoint (e.g., `/api/go/:id`). This endpoint updates the user's `last_accessed` timestamp via a database UPSERT operation before executing an HTTP 302 redirect to the target URL.
 
 ### 4.4 Physical Storage and Network Configuration
 
@@ -116,10 +127,11 @@ Role-Based Access Control is enforced via the `role` column in the `users` table
 * **Administrators:** Granted access to hidden UI routes to perform CRUD operations.  
 * **Admin Bootstrap Process:** The initial administrator is created by logging in via SSO, then manually elevating their role via the local SQLite CLI over an SSH connection. Subsequent admins can be promoted by the initial admin via a protected UI dashboard.
 
-### 5.3 OS and Application Security Concerns
+### 5.3 OS, Application, and Supply Chain Security
 
 * **File System Security:** Because SQLite is local, network-based database attacks are mitigated. Security relies on strict OS-level permissions (e.g., `chmod 600`) ensuring only the Bun process user can access the `.sqlite` file.  
-* **Data Integrity:** All database inputs utilize parameterized queries to prevent SQL injection.  
+* **Data Integrity & Validation:** All database inputs utilize parameterized queries to prevent SQL injection. Additionally, **Zod** will be utilized to enforce strict runtime schema validation. This guarantees that all incoming HTTP requests and database payloads exactly match the expected data types and structures, neutralizing malformed or malicious data before it hits the application's business logic.  
+* **Supply Chain Security:** To protect the runtime environment from compromised third-party packages, all dependencies will be cryptographically pinned using the `bun.lock` file. This locks the exact hashes of libraries like Hono and Zod, ensuring the server only executes verified, unaltered upstream code.  
 * **Application Security:** Hono middleware provides secure HTTP headers (Content Security Policies, X-Frame-Options).  
 * **Transport Security:** All external connections forced over HTTPS via the reverse proxy.
 

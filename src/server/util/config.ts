@@ -15,7 +15,7 @@ function validateConfig() {
   const result = envSchema.safeParse(process.env);
 
   if (!result.success) {
-    console.error("❌ Invalid environment configuration:");
+    console.error("Invalid environment configuration:");
     result.error.issues.forEach((issue) => {
       console.error(`   - ${issue.path.join(".")}: ${issue.message}`);
     });

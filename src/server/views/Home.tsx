@@ -1,31 +1,36 @@
-import type { FC } from 'hono/jsx'
+import type { FC, Child } from 'hono/jsx'
+import { Header } from './components/Header'
+import { Footer } from './components/Footer'
+import { SearchInput } from './components/SearchInput'
 
-// Style Constants
-const PAGE_CONTAINER = "max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow-md space-y-4"
-const TITLE_TEXT = "text-2xl font-bold text-center text-blue-800"
-const SUBTITLE_TEXT = "text-center text-gray-600"
-const ACTION_CONTAINER = "flex justify-center mt-6"
-const BUTTON_PRIMARY = "px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition cursor-pointer"
-const STATUS_CONTAINER = "mt-4 p-4 text-center rounded-lg bg-gray-50 border border-gray-200 min-h-[56px] flex items-center justify-center"
+interface HomeProps {
+    children: Child;
+}
 
-export const Home: FC = () => {
-  return (
-    <div class={PAGE_CONTAINER}>
-      <h1 class={TITLE_TEXT}>AlfredGo Directory</h1>
-      <p class={SUBTITLE_TEXT}>The centralized campus software directory.</p>
-      
-      <div class={ACTION_CONTAINER}>
-          <button 
-            hx-get="/api/health" 
-            hx-target="#status" 
-            class={BUTTON_PRIMARY}
-          >
-              Check Server Health
-          </button>
-      </div>
-      <div id="status" class={STATUS_CONTAINER}>
-          Waiting for status...
-      </div>
-    </div>
-  )
+const LAYOUT_STYLE = "min-h-screen bg-background"
+const STICKY_SEARCH_STYLE = "sticky top-19 z-40 bg-background pt-4 pb-2 max-w-lg mx-auto"
+const MAIN_STYLE = "max-w-lg mx-auto pb-6"
+
+export const Home: FC<HomeProps> = ({ children }) => {
+    return (
+        <div class={LAYOUT_STYLE}>
+            <Header />
+
+            {/* Sticky Search Container */}
+            <div class={STICKY_SEARCH_STYLE}>
+                <SearchInput />
+            </div>
+
+            <main class={MAIN_STYLE}>
+                {/* Global Search Results Placeholder */}
+                <div id="search-results"></div>
+                
+                <div id="main-content">
+                    {children}
+                </div>
+            </main>
+
+            <Footer />
+        </div>
+    )
 }

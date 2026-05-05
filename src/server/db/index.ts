@@ -1,46 +1,55 @@
 import { Database } from "bun:sqlite";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { PATHS } from "../util/paths";
+import { logger } from "../util/logger";
 
 // Database Singleton
 export const db = new Database(PATHS.DB);
+db.run("PRAGMA foreign_keys = ON;");
+db.run("PRAGMA journal_mode = WAL;");
 
+// Creates SQLite connection and checks for migrations
 export async function initDb() {
   try {
     await mkdir(PATHS.DATA, { recursive: true });
   } catch (e) {}
 
   db.run(`
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE IF NOT EXISTS _migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sso_id TEXT UNIQUE NOT NULL,
-      email TEXT NOT NULL,
-      display_name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'student'
+      name TEXT UNIQUE NOT NULL,
+      executed_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      icon_name TEXT,
-      sort_order INTEGER DEFAULT 0
-    );
-  `);
+  const migrationsDir = join(import.meta.dir, "migrations");
+  const files = (await readdir(migrationsDir))
+    .filter(f => f.endsWith(".sql"))
+    .sort();
 
-  db.run(`
-    CREATE TABLE IF NOT EXISTS services (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category_id INTEGER,
-      name TEXT NOT NULL,
-      description TEXT,
-      url TEXT NOT NULL,
-      date_created DATETIME DEFAULT CURRENT_TIMESTAMP,
-      date_modified DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (category_id) REFERENCES categories(id)
-    );
-  `);
+  const applied = new Set(
+    db.query("SELECT name FROM _migrations").all().map((m: any) => m.name)
+  );
 
-  console.log("Database initialized at:", PATHS.DB);
+  for (const file of files) {
+    if (!applied.has(file)) {
+      logger.info({ file }, "Applying database migration");
+      const sql = await readFile(join(migrationsDir, file), "utf8");
+      
+      // Execute migration in a transaction
+      const transaction = db.transaction(() => {
+        db.run(sql);
+        db.run("INSERT INTO _migrations (name) VALUES (?)", [file]);
+      });
+
+      try {
+        transaction();
+        logger.info({ file }, "Successfully applied migration");
+      } catch (err) {
+        logger.error({ err, file }, "Failed to apply migration");
+        throw err; // Stop startup if migration fails
+      }
+    }
+  }
 }

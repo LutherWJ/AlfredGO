@@ -5,7 +5,7 @@ interface RendererProps {
   title?: string;
 }
 
-const BODY_STYLE = "bg-gray-100 text-gray-900 font-sans antialiased p-4";
+const BODY_STYLE = "bg-background text-foreground font-sans antialiased";
 
 export const renderer = jsxRenderer(({ children, title }: RendererProps) => {
     return (
